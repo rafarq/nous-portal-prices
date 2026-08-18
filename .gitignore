@@ -1,0 +1,17 @@
+# Configuración local con secretos (token de pines) — NUNCA versionar
+config.js
+config.php
+
+# Deploy: rutas de la infraestructura personal (host FTP, dominios) — no publicar
+deploy.py
+
+# Estado local / runtime del proyecto
+pins.json
+prices_prev.json
+portal.md
+.htaccess
+*.bak
+
+# Python
+__pycache__/
+*.pyc

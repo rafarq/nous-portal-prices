@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Nous Portal · Precios de modelos</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --border:#2a2f3a; --text:#e6e9ef;
+    --muted:#9aa3b2; --accent:#4f8cff; --up:#ff6b6b; --down:#4ade80; --new:#60a5fa;
+    --pin:#facc15;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+  body{background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    padding:12px 16px}
+  .wrap{max-width:960px;height:100%;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+  header{flex:none}
+  h1{font-size:1.35rem;font-weight:700}
+  .meta{color:var(--muted);font-size:.85rem;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 14px}
+  .controls{flex:none;display:flex;gap:8px}
+  #search{flex:1;min-width:0;background:var(--card);border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:9px 12px;font-size:.95rem;outline:none}
+  #search:focus{border-color:var(--accent)}
+
+  .pinned-wrap{background:var(--bg);padding:10px 10px 8px;
+    border-bottom:1px solid var(--border)}
+  .pinned-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+  .pinned-head .ttl{font-weight:700;font-size:.9rem;color:var(--pin)}
+  .pinned-head .cnt{color:var(--muted);font-size:.8rem}
+  .pin-sort{display:inline-flex;border:1px solid var(--border);border-radius:99px;overflow:hidden}
+  .pin-sort button{background:transparent;border:none;color:var(--muted);font-size:.72rem;font-weight:600;
+    padding:3px 10px;cursor:pointer}
+  .pin-sort button.on{background:rgba(79,140,255,.18);color:var(--accent)}
+  #pin-clear{margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--muted);
+    border-radius:99px;padding:3px 10px;font-size:.75rem;cursor:pointer}
+  #pin-clear:hover{color:var(--text);border-color:var(--muted)}
+
+  .pinned-list{display:flex;flex-direction:column;gap:6px}
+  .pin-card{width:100%;background:var(--card);border:1px solid var(--accent);border-radius:10px;
+    padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.85rem}
+  .pin-card.dragging{opacity:.45;border-style:dashed}
+  .pin-card .pin-handle{color:var(--muted);cursor:grab;font-size:1.05rem;user-select:none;touch-action:none}
+  .pin-card .pname{font-weight:600;display:flex;align-items:center;gap:6px;min-width:0}
+  .pin-card .pmid{color:var(--muted);font-size:.72rem;word-break:break-all;width:100%}
+  .pin-card .pprices{display:flex;gap:14px;font-variant-numeric:tabular-nums;margin-left:auto}
+  .pin-card .pprices b{color:var(--accent)}
+  .pin-card .pbtns{display:inline-flex;gap:2px}
+  .pin-card .pbtn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);
+    cursor:pointer;font-size:.8rem;padding:1px 7px;line-height:1.4}
+  .pin-card .pbtn:hover{color:var(--text);border-color:var(--muted)}
+  .pin-card .pbtn:disabled{opacity:.25;cursor:default}
+  .pin-card .unpin{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;padding:2px 4px}
+  .pin-card .unpin:hover{color:var(--up)}
+
+  .table-wrap{flex:1 1 auto;min-height:0;overflow-y:auto;border:1px solid var(--border);border-radius:10px;background:var(--card)}
+  .table-x{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;min-width:680px;font-size:.9rem}
+  thead th{position:sticky;top:0;z-index:2;cursor:pointer;user-select:none;padding:10px 12px;text-align:left;white-space:nowrap;
+    border-bottom:1px solid var(--border);background:#1d212b}
+  thead th:hover{background:#252b38}
+  thead th .arrow{color:var(--accent);font-size:.75rem;margin-left:3px}
+  tbody td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:#1c212c}
+  tbody tr.pinned-row{background:rgba(79,140,255,.07)}
+  tbody tr.pinned-row:hover{background:rgba(79,140,255,.12)}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  th.num{text-align:right}
+  td.pin-col{text-align:center;width:44px}
+  .pin-btn{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);
+    cursor:pointer;font-size:.95rem;padding:2px 6px;line-height:1.2}
+  .pin-btn:hover{border-color:var(--pin);color:var(--pin)}
+  .pin-btn.on{background:rgba(250,204,21,.12);border-color:var(--pin);color:var(--pin)}
+  .mname{font-weight:600}
+  .mid{color:var(--muted);font-size:.78rem;word-break:break-all}
+  .ctx{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .badge{display:inline-block;font-size:.72rem;font-weight:700;border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+  .b-up{background:rgba(255,107,107,.14);color:var(--up)}
+  .b-down{background:rgba(74,222,128,.14);color:var(--down)}
+  .b-new{background:rgba(96,165,250,.16);color:var(--new)}
+  footer{flex:none;color:var(--muted);font-size:.78rem;text-align:center}
+  .empty{padding:24px;text-align:center;color:var(--muted)}
+  @media (max-width:480px){
+    body{padding:8px 10px}
+    h1{font-size:1.15rem}
+    tbody td{padding:7px 9px}
+    .pin-card .pprices{margin-left:auto;width:auto}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Nous Portal · Precios de modelos</h1>
+    <div class="meta">
+      <span id="meta-date">—</span>
+      <span id="meta-count">—</span>
+      <span id="meta-changes"></span>
+    </div>
+  </header>
+  <div class="controls">
+    <input id="search" type="search" placeholder="Buscar modelo…" autocomplete="off">
+  </div>
+
+  <div class="table-wrap">
+    <div class="pinned-wrap" id="pinned-wrap" style="display:none">
+      <div class="pinned-head">
+        <span class="ttl">📌 Anclados</span>
+        <span class="cnt" id="pin-count"></span>
+        <div class="pin-sort" id="pin-sort">
+          <button data-mode="" class="on">Manual</button>
+          <button data-mode="in">Por In</button>
+          <button data-mode="out">Por Out</button>
+        </div>
+        <button id="pin-clear">Quitar todos</button>
+      </div>
+      <div class="pinned-list" id="pin-list"></div>
+    </div>
+    <div class="table-x">
+      <table>
+        <thead>
+          <tr>
+            <th class="pin-col" title="Anclar para comparar">📌</th>
+            <th data-key="name">Modelo <span class="arrow"></span></th>
+            <th data-key="in" class="num">Input $/1M <span class="arrow"></span></th>
+            <th data-key="out" class="num">Output $/1M <span class="arrow"></span></th>
+            <th data-key="ctx" class="num">Contexto <span class="arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="empty" class="empty" style="display:none">Sin resultados</div>
+    </div>
+  </div>
+  <footer>Fuente: <a href="https://openrouter.ai" style="color:var(--muted)">OpenRouter</a> · catálogo de Nous Portal · Actualiza bajo demanda</footer>
+</div>
+
+<script src="config.js"></script>
+<script>
+"use strict";
+let models = [];
+let sortKey = "in", sortDir = 1;
+let pinnedIds = [];
+let pinSort = "";   // "" manual | "in" | "out"
+try { pinnedIds = JSON.parse(localStorage.getItem("np_pinned") || "[]"); } catch(e) { pinnedIds = []; }
+const $ = (s) => document.querySelector(s);
+
+function fmtUsd(v){
+  if (v == null) return "—";
+  const s = v < 0.01 ? v.toFixed(4) : v.toFixed(2);
+  return "$" + s;
+}
+function fmtCtx(n){
+  if (!n) return "—";
+  if (n >= 1e6) return (n/1e6).toFixed(1) + "M";
+  return Math.round(n/1000) + "K";
+}
+function badgeFor(change, key){
+  if (!change || !change[key]) return "";
+  const pct = change[key].pct;
+  if (pct === null || pct === undefined || Math.abs(pct) < 0.05) return "";
+  const cls = pct > 0 ? "b-up" : "b-down";
+  const arrow = pct > 0 ? "▲" : "▼";
+  return `<span class="badge ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+}
+function savePinned(){
+  try { localStorage.setItem("np_pinned", JSON.stringify(pinnedIds)); } catch(e) {}
+}
+const PIN_TOKEN = window.PIN_TOKEN || "";
+function syncPinsRemote(){
+  fetch("pin.php", {
+    method: "POST",
+    headers: {"Content-Type": "application/json", "X-Pin-Token": PIN_TOKEN},
+    body: JSON.stringify({ids: pinnedIds})
+  }).catch(() => {});
+}
+function loadPinsRemote(){
+  return fetch("pin.php", {cache: "no-store"})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      const remote = (d && Array.isArray(d.ids)) ? d.ids : [];
+      // MERGE (nunca sobrescribir): los pines remotos primero, luego los
+      // locales que falten. Así un servidor vacío no borra los del navegador
+      // y viceversa. Si el resultado difiere de lo remoto, converger (POST).
+      const merged = [...remote];
+      for (const id of pinnedIds) {
+        if (!merged.includes(id)) merged.push(id);
+      }
+      const changed = merged.length !== remote.length ||
+        merged.some((id, i) => id !== remote[i]);
+      pinnedIds = merged;
+      savePinned();
+      if (changed) syncPinsRemote();
+    })
+    .catch(() => {});
+}
+function isPinned(id){ return pinnedIds.includes(id); }
+
+function togglePin(id){
+  const i = pinnedIds.indexOf(id);
+  if (i >= 0) pinnedIds.splice(i, 1); else pinnedIds.push(id);
+  savePinned();
+  syncPinsRemote();
+  applySort();
+  renderPinned();
+}
+function setPinSort(mode){
+  pinSort = mode || "";
+  document.querySelectorAll("#pin-sort button").forEach(b => b.classList.toggle("on", b.dataset.mode === pinSort));
+  applySort();
+  renderPinned();
+}
+function movePin(id, dir){
+  const i = pinnedIds.indexOf(id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= pinnedIds.length) return;
+  pinnedIds.splice(i, 1);
+  pinnedIds.splice(j, 0, id);
+  pinSort = "";                 // reordenación manual -> salir del modo precio
+  savePinned();
+  syncPinsRemote();
+  applySort();
+  renderPinned();
+}
+function orderedPinned(){
+  const list = pinnedIds.map(id => models.find(m => m.id === id)).filter(Boolean);
+  if (pinSort === "in" || pinSort === "out"){
+    list.sort((a, b) => (a[pinSort] ?? 0) - (b[pinSort] ?? 0));
+  }
+  return list;
+}
+
+function renderPinned(){
+  const wrap = $("#pinned-wrap");
+  const list = $("#pin-list");
+  if (!wrap || !list) return;
+  const pinned = orderedPinned();
+  if (!pinned.length){
+    wrap.style.display = "none";
+    return;
+  }
+  wrap.style.display = "block";
+  $("#pin-count").textContent = pinned.length + (pinned.length === 1 ? " modelo anclado" : " modelos anclados");
+  document.querySelectorAll("#pin-sort button").forEach(b => b.classList.toggle("on", b.dataset.mode === pinSort));
+  list.innerHTML = pinned.map((m, idx) => {
+    const n = pinned.length;
+    const first = idx === 0, last = idx === n - 1;
+    return `
+    <div class="pin-card" draggable="true" data-id="${m.id}">
+      <span class="pin-handle" title="Arrastrar">⠿</span>
+      <div style="flex:1;min-width:180px">
+        <div class="pname">${m.name}<span class="badge ${m.new ? "b-new" : ""}" style="${m.new ? "" : "display:none"}">NUEVO</span></div>
+        <div class="pmid">${m.id}</div>
+      </div>
+      <div class="pprices">
+        <span>In <b>${fmtUsd(m.in)}</b></span>
+        <span>Out <b>${fmtUsd(m.out)}</b></span>
+        <span>${fmtCtx(m.ctx)}</span>
+      </div>
+      <div class="pbtns">
+        <button class="pbtn" data-move="-1" title="Subir" ${first ? "disabled" : ""}>▲</button>
+        <button class="pbtn" data-move="1" title="Bajar" ${last ? "disabled" : ""}>▼</button>
+      </div>
+      <button class="unpin" title="Quitar" data-id="${m.id}">✕</button>
+    </div>`;
+  }).join("");
+
+  list.querySelectorAll(".pbtn").forEach(btn =>
+    btn.addEventListener("click", () => movePin(btn.closest(".pin-card").dataset.id, parseInt(btn.dataset.move, 10))));
+  list.querySelectorAll(".unpin").forEach(btn =>
+    btn.addEventListener("click", () => togglePin(btn.dataset.id)));
+
+  // drag & drop (escritorio)
+  let dragId = null;
+  list.querySelectorAll(".pin-card").forEach(card => {
+    card.addEventListener("dragstart", e => {
+      dragId = card.dataset.id;
+      card.classList.add("dragging");
+      try { e.dataTransfer.setData("text/plain", dragId); e.dataTransfer.effectAllowed = "move"; } catch(_) {}
+    });
+    card.addEventListener("dragover", e => {
+      e.preventDefault();
+      const rect = card.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      e.dataTransfer.dropEffect = "move";
+      card.style.borderTop = before ? "2px solid var(--accent)" : "";
+      card.style.borderBottom = before ? "" : "2px solid var(--accent)";
+    });
+    card.addEventListener("dragleave", () => {
+      card.style.borderTop = ""; card.style.borderBottom = "";
+    });
+    card.addEventListener("drop", e => {
+      e.preventDefault();
+      card.style.borderTop = ""; card.style.borderBottom = "";
+      if (!dragId || dragId === card.dataset.id) return;
+      const rect = card.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      const from = pinnedIds.indexOf(dragId);
+      let to = pinnedIds.indexOf(card.dataset.id);
+      pinnedIds.splice(from, 1);
+      to = pinnedIds.indexOf(card.dataset.id);
+      pinnedIds.splice(before ? to : to + 1, 0, dragId);
+      pinSort = "";
+      savePinned();
+      syncPinsRemote();
+      applySort();
+      renderPinned();
+    });
+    card.addEventListener("dragend", () => {
+      card.classList.remove("dragging");
+      card.style.borderTop = ""; card.style.borderBottom = "";
+      dragId = null;
+    });
+  });
+}
+
+function applySort(){
+  const dir = sortDir;
+  const idx = (id) => { const i = pinnedIds.indexOf(id); return i === -1 ? Infinity : i; };
+  models.sort((a, b) => {
+    const ia = idx(a.id), ib = idx(b.id);
+    if (ia !== ib) return ia - ib;            // anclados primero, en su orden
+    if (sortKey === "name") return a.name.localeCompare(b.name) * dir;
+    return ((a[sortKey] ?? 0) - (b[sortKey] ?? 0)) * dir;
+  });
+}
+
+function render(){
+  const q = $("#search").value.trim().toLowerCase();
+  const rows = models.filter(m => !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
+  const tbody = $("#rows");
+  tbody.innerHTML = "";
+  $("#empty").style.display = rows.length ? "none" : "block";
+  for (const m of rows){
+    const pinned = isPinned(m.id);
+    const tr = document.createElement("tr");
+    if (pinned) tr.className = "pinned-row";
+    tr.innerHTML = `
+      <td class="pin-col"><button class="pin-btn ${pinned ? "on" : ""}" title="${pinned ? "Quitar del comparador" : "Anclar para comparar"}" data-id="${m.id}">${pinned ? "📌" : "📍"}</button></td>
+      <td><div class="mname">${m.name}${m.new ? `<span class="badge b-new">NUEVO</span>` : ""}</div><div class="mid">${m.id}</div></td>
+      <td class="num">${fmtUsd(m.in)}${badgeFor(m.change, "in")}</td>
+      <td class="num">${fmtUsd(m.out)}${badgeFor(m.change, "out")}</td>
+      <td class="num"><span class="ctx">${fmtCtx(m.ctx)}</span></td>
+    `;
+    tbody.appendChild(tr);
+  }
+  tbody.querySelectorAll(".pin-btn").forEach(btn =>
+    btn.addEventListener("click", () => togglePin(btn.dataset.id)));
+  document.querySelectorAll("thead th").forEach(th => {
+    if (!th.dataset.key) return;
+    const arrow = th.querySelector(".arrow");
+    arrow.textContent = th.dataset.key === sortKey ? (sortDir === 1 ? "▲" : "▼") : "";
+  });
+}
+
+function sort(key){
+  if (key === sortKey) { sortDir *= -1; } else { sortKey = key; sortDir = 1; }
+  applySort();
+  render();
+}
+
+$("#pin-clear").addEventListener("click", () => { pinnedIds = []; savePinned(); syncPinsRemote(); applySort(); render(); renderPinned(); });
+document.querySelectorAll("#pin-sort button").forEach(b => b.addEventListener("click", () => setPinSort(b.dataset.mode)));
+$("#search").addEventListener("input", render);
+document.querySelectorAll("thead th").forEach(th => th.addEventListener("click", () => { if (th.dataset.key) sort(th.dataset.key); }));
+
+fetch("prices.json", {cache: "no-store"})
+  .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+  .then(doc => {
+    models = doc.models || [];
+    $("#meta-date").textContent = "Actualizado: " + new Date(doc.generated_at).toLocaleString("es-ES", {dateStyle:"short", timeStyle:"short"});
+    $("#meta-count").textContent = doc.total + " modelos";
+    const ups = models.filter(m => (m.change.in && m.change.in.pct > 0) || (m.change.out && m.change.out.pct > 0)).length;
+    const downs = models.filter(m => (m.change.in && m.change.in.pct < 0) || (m.change.out && m.change.out.pct < 0)).length;
+    const news = models.filter(m => m.new).length;
+    const parts = [];
+    if (ups) parts.push(`▲ ${ups} subieron`);
+    if (downs) parts.push(`▼ ${downs} bajaron`);
+    if (news) parts.push(`🆕 ${news} nuevos`);
+    $("#meta-changes").textContent = parts.join(" · ");
+    return loadPinsRemote();
+  })
+  .then(() => {
+    pinnedIds = pinnedIds.filter(id => models.some(m => m.id === id));
+    savePinned();
+    sortKey = "in"; sortDir = 1;
+    applySort();
+    render();
+    renderPinned();
+  })
+  .catch(e => {
+    $("#rows").innerHTML = `<tr><td colspan="5" class="empty">No se pudo cargar prices.json (${e.message})</td></tr>`;
+  });
+</script>
+</body>
+</html>
