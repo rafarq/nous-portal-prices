@@ -28,6 +28,8 @@ PREV_FILE = BASE / "prices_prev.json"
 OUT_FILE = BASE / "prices.json"
 
 PRICE_RE = re.compile(r"in \$([\d.]+)\s*/\s*out \$([\d.]+)\s+per\s+1M")
+FLAT_RE = re.compile(r"\$([\d.]+)/1M")  # formato "in $0.00/1M" (free) o flat "$X/1M"
+BATCH_RE = re.compile(r"\(batch\)", re.IGNORECASE)
 LINK_RE = re.compile(r"\[([^\]]+)\]\((https://openrouter\.ai/[^)]+)\)")
 
 
@@ -50,25 +52,53 @@ def fetch_catalog() -> dict[str, dict]:
 
 
 def parse_portal(text: str) -> list[dict]:
+    """Parsea el markdown del portal de Nous.
+
+    Reglas para que los precios reflejen SIEMPRE lo que muestra el portal
+    (fuente correcta = portal.nousresearch.com, NO la API de OpenRouter,
+    que añade margen):
+
+    - El portal lista algunos modelos DOS veces con el mismo slug: la entrada
+      normal y la variante (batch) a mitad de precio. Se prioriza SIEMPRE la
+      normal: si para un slug existe al menos una entrada sin "(batch)", se
+      descartan las batch.
+    - Formato flat "$X/1M" (p. ej. LongCat 2.0:free): in = out = X (0 para free).
+    - El nombre/ctx se cruza con la API de OpenRouter solo como metadato.
+    """
     catalog = fetch_catalog()
-    models: dict[str, dict] = {}
+    raw: dict[str, list[dict]] = {}
     for m in LINK_RE.finditer(text):
         label, url = m.group(1), m.group(2)
         slug = url.split("openrouter.ai/", 1)[-1].split("?")[0].rstrip("/")
         if not slug:
             continue
         pm = PRICE_RE.search(label)
-        if not pm:
-            continue  # formato sin in/out (p.ej. flat "$X/1M"): se omite
+        if pm:
+            price_in, price_out = float(pm.group(1)), float(pm.group(2))
+            clean_label = PRICE_RE.sub("", label).strip()
+        else:
+            fm = FLAT_RE.search(label)
+            if not fm:
+                continue  # sin precio parseable: se omite
+            price_in = price_out = float(fm.group(1))
+            clean_label = FLAT_RE.sub("", label).strip()
         info = catalog.get(slug) or {}
-        models[slug] = {
+        raw.setdefault(slug, []).append({
             "id": slug,
-            "name": info.get("name") or re.sub(r"\s*in \$.*$", "", label),
-            "in": round(float(pm.group(1)), 4),
-            "out": round(float(pm.group(2)), 4),
+            "name": info.get("name") or clean_label,
+            "in": round(price_in, 4),
+            "out": round(price_out, 4),
             "ctx": info.get("ctx") or 0,
-        }
-    return list(models.values())
+            "is_batch": bool(BATCH_RE.search(label)),
+        })
+
+    models = []
+    for slug, entries in raw.items():
+        # Prioridad: precio normal > batch (descartar batch si hay normal).
+        best = next((e for e in entries if not e["is_batch"]), entries[0])
+        best.pop("is_batch", None)
+        models.append(best)
+    return models
 
 
 def diff(prev: dict[str, dict], models: list[dict], first_run: bool) -> list[dict]:

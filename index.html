@@ -81,11 +81,33 @@
   .b-new{background:rgba(96,165,250,.16);color:var(--new)}
   footer{flex:none;color:var(--muted);font-size:.78rem;text-align:center}
   .empty{padding:24px;text-align:center;color:var(--muted)}
+  .mname{cursor:pointer}
+  .mname:hover{color:var(--accent)}
+  /* Modal histórico */
+  .hist-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .hist-overlay.open{display:flex}
+  .hist-panel{background:var(--card);border:1px solid var(--border);border-radius:14px 14px 0 0;width:100%;max-width:640px;
+    max-height:78vh;display:flex;flex-direction:column;padding:14px 16px calc(14px + env(safe-area-inset-bottom))}
+  .hist-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+  .hist-head .ht{flex:1;min-width:0}
+  .hist-head .ht b{font-size:1.02rem;display:block}
+  .hist-head .ht span{color:var(--muted);font-size:.75rem;word-break:break-all}
+  .hist-close{background:transparent;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1;padding:4px 6px}
+  .hist-close:hover{color:var(--text)}
+  .hist-body{overflow-y:auto;min-height:0}
+  .hist-table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:0}
+  .hist-table th{position:sticky;top:0;background:#1d212b;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+  .hist-table td{padding:7px 10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .hist-table td:last-child{text-align:right}
+  .hist-empty{padding:18px;text-align:center;color:var(--muted);font-size:.85rem}
+  .hist-chg-up{color:var(--up)}
+  .hist-chg-down{color:var(--down)}
   @media (max-width:480px){
     body{padding:8px 10px}
     h1{font-size:1.15rem}
     tbody td{padding:7px 9px}
     .pin-card .pprices{margin-left:auto;width:auto}
+    .hist-panel{max-height:82vh}
   }
 </style>
 </head>
@@ -136,6 +158,19 @@
   <footer>Fuente: <a href="https://openrouter.ai" style="color:var(--muted)">OpenRouter</a> · catálogo de Nous Portal · Actualiza bajo demanda</footer>
 </div>
 
+<div class="hist-overlay" id="hist-overlay">
+  <div class="hist-panel">
+    <div class="hist-head">
+      <div class="ht">
+        <b id="hist-name">—</b>
+        <span id="hist-id">—</span>
+      </div>
+      <button class="hist-close" id="hist-close" title="Cerrar">✕</button>
+    </div>
+    <div class="hist-body" id="hist-body"></div>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script>
 "use strict";
@@ -143,6 +178,7 @@ let models = [];
 let sortKey = "in", sortDir = 1;
 let pinnedIds = [];
 let pinSort = "";   // "" manual | "in" | "out"
+let historyData = {};   // id -> [{ts, in, out}, ...]
 try { pinnedIds = JSON.parse(localStorage.getItem("np_pinned") || "[]"); } catch(e) { pinnedIds = []; }
 const $ = (s) => document.querySelector(s);
 
@@ -250,7 +286,7 @@ function renderPinned(){
     <div class="pin-card" draggable="true" data-id="${m.id}">
       <span class="pin-handle" title="Arrastrar">⠿</span>
       <div style="flex:1;min-width:180px">
-        <div class="pname">${m.name}<span class="badge ${m.new ? "b-new" : ""}" style="${m.new ? "" : "display:none"}">NUEVO</span></div>
+        <div class="pname" data-id="${m.id}" title="Ver histórico" style="cursor:pointer">${m.name}<span class="badge ${m.new ? "b-new" : ""}" style="${m.new ? "" : "display:none"}">NUEVO</span></div>
         <div class="pmid">${m.id}</div>
       </div>
       <div class="pprices">
@@ -270,6 +306,8 @@ function renderPinned(){
     btn.addEventListener("click", () => movePin(btn.closest(".pin-card").dataset.id, parseInt(btn.dataset.move, 10))));
   list.querySelectorAll(".unpin").forEach(btn =>
     btn.addEventListener("click", () => togglePin(btn.dataset.id)));
+  list.querySelectorAll(".pname").forEach(el =>
+    el.addEventListener("click", e => { if (!e.target.closest(".badge")) showHistory(el.dataset.id); }));
 
   // drag & drop (escritorio)
   let dragId = null;
@@ -326,6 +364,36 @@ function applySort(){
   });
 }
 
+function showHistory(id){
+  const m = models.find(x => x.id === id);
+  const hist = historyData[id] || [];
+  $("#hist-name").textContent = m ? m.name : id;
+  $("#hist-id").textContent = id;
+  const body = $("#hist-body");
+  if (!hist.length){
+    body.innerHTML = `<div class="hist-empty">Sin histórico todavía (los cambios se registran a partir de ahora).</div>`;
+  } else {
+    let rows = "";
+    let prev = null;
+    for (const h of hist){
+      const when = new Date(h.ts).toLocaleString("es-ES", {dateStyle:"short", timeStyle:"short"});
+      let inCell = fmtUsd(h.in), outCell = fmtUsd(h.out);
+      if (prev){
+        const din = h.in - prev.in, dout = h.out - prev.out;
+        if (Math.abs(din) > 1e-9) inCell += ` <span class="${din > 0 ? "hist-chg-up" : "hist-chg-down"}">${din > 0 ? "▲" : "▼"}${fmtUsd(Math.abs(din))}</span>`;
+        if (Math.abs(dout) > 1e-9) outCell += ` <span class="${dout > 0 ? "hist-chg-up" : "hist-chg-down"}">${dout > 0 ? "▲" : "▼"}${fmtUsd(Math.abs(dout))}</span>`;
+      }
+      rows += `<tr><td>${when}</td><td>${inCell}</td><td>${outCell}</td></tr>`;
+      prev = h;
+    }
+    body.innerHTML = `<table class="hist-table"><thead><tr><th>Fecha</th><th>Input $/1M</th><th>Output $/1M</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  $("#hist-overlay").classList.add("open");
+}
+function closeHistory(){
+  $("#hist-overlay").classList.remove("open");
+}
+
 function render(){
   const q = $("#search").value.trim().toLowerCase();
   const rows = models.filter(m => !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
@@ -338,7 +406,7 @@ function render(){
     if (pinned) tr.className = "pinned-row";
     tr.innerHTML = `
       <td class="pin-col"><button class="pin-btn ${pinned ? "on" : ""}" title="${pinned ? "Quitar del comparador" : "Anclar para comparar"}" data-id="${m.id}">${pinned ? "📌" : "📍"}</button></td>
-      <td><div class="mname">${m.name}${m.new ? `<span class="badge b-new">NUEVO</span>` : ""}</div><div class="mid">${m.id}</div></td>
+      <td><div class="mname" data-id="${m.id}" title="Ver histórico">${m.name}${m.new ? `<span class="badge b-new">NUEVO</span>` : ""}</div><div class="mid">${m.id}</div></td>
       <td class="num">${fmtUsd(m.in)}${badgeFor(m.change, "in")}</td>
       <td class="num">${fmtUsd(m.out)}${badgeFor(m.change, "out")}</td>
       <td class="num"><span class="ctx">${fmtCtx(m.ctx)}</span></td>
@@ -347,6 +415,8 @@ function render(){
   }
   tbody.querySelectorAll(".pin-btn").forEach(btn =>
     btn.addEventListener("click", () => togglePin(btn.dataset.id)));
+  tbody.querySelectorAll(".mname").forEach(el =>
+    el.addEventListener("click", () => showHistory(el.dataset.id)));
   document.querySelectorAll("thead th").forEach(th => {
     if (!th.dataset.key) return;
     const arrow = th.querySelector(".arrow");
@@ -361,6 +431,8 @@ function sort(key){
 }
 
 $("#pin-clear").addEventListener("click", () => { pinnedIds = []; savePinned(); syncPinsRemote(); applySort(); render(); renderPinned(); });
+$("#hist-close").addEventListener("click", closeHistory);
+$("#hist-overlay").addEventListener("click", e => { if (e.target.id === "hist-overlay") closeHistory(); });
 document.querySelectorAll("#pin-sort button").forEach(b => b.addEventListener("click", () => setPinSort(b.dataset.mode)));
 $("#search").addEventListener("input", render);
 document.querySelectorAll("thead th").forEach(th => th.addEventListener("click", () => { if (th.dataset.key) sort(th.dataset.key); }));
@@ -379,7 +451,11 @@ fetch("prices.json", {cache: "no-store"})
     if (downs) parts.push(`▼ ${downs} bajaron`);
     if (news) parts.push(`🆕 ${news} nuevos`);
     $("#meta-changes").textContent = parts.join(" · ");
-    return loadPinsRemote();
+    return Promise.all([loadPinsRemote(),
+      fetch("history.json", {cache: "no-store"})
+        .then(r => r.ok ? r.json() : {})
+        .then(h => { historyData = h || {}; })
+        .catch(() => { historyData = {}; })]);
   })
   .then(() => {
     pinnedIds = pinnedIds.filter(id => models.some(m => m.id === id));

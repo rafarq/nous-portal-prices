@@ -11,6 +11,9 @@ prices_prev.json
 portal.md
 .htaccess
 *.bak
+history.db
+history.json
+update.log
 
 # Python
 __pycache__/
