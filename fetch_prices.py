@@ -1,103 +1,81 @@
 #!/usr/bin/env python3
 """Genera prices.json con los precios de Nous Portal.
 
-Fuente de precios: markdown de https://portal.nousresearch.com/ (capturado con
-web_extract y guardado como portal.md) — son los precios EXACTOS que muestra el
-portal (in $X / out $Y per 1M). El nombre y el contexto se cruzan con la API
-pública de OpenRouter (el portal enlaza a openrouter.ai por modelo).
+Fuente de precios: la inference-api oficial de Nous Portal
+(https://inference-api.nousresearch.com/v1/models) — el catálogo de modelos
+de Nous, con precios por token (prompt/completion). Se multiplica por 1e6
+para obtener el precio por 1M tokens que muestra la web.
+
+NO se consulta OpenRouter en ningún punto: ni la API de OpenRouter ni enlaces
+a openrouter.ai. Todo sale del propio portal de Nous.
 
 Compara contra prices_prev.json y marca: "new": true si el modelo no estaba, y
 change.in / change.out = {old, pct} cuando el precio cambió (pct > 0 = subió).
 
 Uso:
-    python3 fetch_prices.py [portal.md]   # regenera prices.json + prices_prev.json
+    python3 fetch_prices.py   # regenera prices.json + prices_prev.json
 """
 from __future__ import annotations
 
 import json
-import re
 import sys
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
-PORTAL_MD = Path(sys.argv[1]) if len(sys.argv) > 1 else BASE / "portal.md"
-API_URL = "https://openrouter.ai/api/v1/models"
+API_URL = "https://inference-api.nousresearch.com/v1/models"
 PREV_FILE = BASE / "prices_prev.json"
 OUT_FILE = BASE / "prices.json"
-
-PRICE_RE = re.compile(r"in \$([\d.]+)\s*/\s*out \$([\d.]+)\s+per\s+1M")
-FLAT_RE = re.compile(r"\$([\d.]+)/1M")  # formato "in $0.00/1M" (free) o flat "$X/1M"
-BATCH_RE = re.compile(r"\(batch\)", re.IGNORECASE)
-LINK_RE = re.compile(r"\[([^\]]+)\]\((https://openrouter\.ai/[^)]+)\)")
+PCT_EPS = 0.05  # mínimo % de variación para considerarlo cambio
 
 
-def fetch_catalog() -> dict[str, dict]:
-    """id/canonical_slug -> {name, ctx} desde la API de OpenRouter."""
-    req = urllib.request.Request(API_URL, headers={"User-Agent": "nous-portal-prices/1.0"})
-    out: dict[str, dict] = {}
-    try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            data = json.load(r)
-        for m in data.get("data", []):
-            entry = {"name": m.get("name") or m["id"], "ctx": m.get("context_length") or 0}
-            out[m["id"]] = entry
-            cs = m.get("canonical_slug")
-            if cs and cs != m["id"]:
-                out.setdefault(cs, entry)
-    except Exception as e:
-        print(f"AVISO: no se pudo obtener catálogo OpenRouter ({e}); sin nombres/contexto")
-    return out
+def fetch_catalog() -> list[dict]:
+    """Modelos y precios del catálogo oficial de Nous (inference-api)."""
+    req = urllib.request.Request(
+        API_URL,
+        headers={"User-Agent": "nous-portal-prices/2.0 (Rafa; solo Nous Portal)"},
+    )
+    with urllib.request.urlopen(req, timeout=90) as r:
+        data = json.load(r)
+    return list(data.get("data") or [])
 
 
-def parse_portal(text: str) -> list[dict]:
-    """Parsea el markdown del portal de Nous.
+def parse_catalog(raw: list[dict]) -> list[dict]:
+    """Convierte el catálogo de la inference-api en la lista de modelos.
 
-    Reglas para que los precios reflejen SIEMPRE lo que muestra el portal
-    (fuente correcta = portal.nousresearch.com, NO la API de OpenRouter,
-    que añade margen):
-
-    - El portal lista algunos modelos DOS veces con el mismo slug: la entrada
-      normal y la variante (batch) a mitad de precio. Se prioriza SIEMPRE la
-      normal: si para un slug existe al menos una entrada sin "(batch)", se
-      descartan las batch.
-    - Formato flat "$X/1M" (p. ej. LongCat 2.0:free): in = out = X (0 para free).
-    - El nombre/ctx se cruza con la API de OpenRouter solo como metadato.
+    - id visible = canonical_slug (con fecha) si existe, si no el id. Es el
+      mismo id que usaba la web (el que el portal enlazaba).
+    - Precio por 1M = pricing.prompt/completion (por token) * 1e6.
+    - Los modelos batch vienen como id con sufijo ':batch' pero comparten
+      canonical_slug con el normal; se descarta el batch si existe el normal.
     """
-    catalog = fetch_catalog()
-    raw: dict[str, list[dict]] = {}
-    for m in LINK_RE.finditer(text):
-        label, url = m.group(1), m.group(2)
-        slug = url.split("openrouter.ai/", 1)[-1].split("?")[0].rstrip("/")
-        if not slug:
+    raw = [m for m in raw if m.get("id") and m.get("pricing")]
+    by_cs: dict[str, dict] = {}
+    for m in raw:
+        cs = m.get("canonical_slug") or m["id"]
+        is_batch = m["id"].endswith(":batch")
+        price = m.get("pricing") or {}
+        prompt = price.get("prompt")
+        completion = price.get("completion")
+        if prompt is None or completion is None:
             continue
-        pm = PRICE_RE.search(label)
-        if pm:
-            price_in, price_out = float(pm.group(1)), float(pm.group(2))
-            clean_label = PRICE_RE.sub("", label).strip()
-        else:
-            fm = FLAT_RE.search(label)
-            if not fm:
-                continue  # sin precio parseable: se omite
-            price_in = price_out = float(fm.group(1))
-            clean_label = FLAT_RE.sub("", label).strip()
-        info = catalog.get(slug) or {}
-        raw.setdefault(slug, []).append({
-            "id": slug,
-            "name": info.get("name") or clean_label,
-            "in": round(price_in, 4),
-            "out": round(price_out, 4),
-            "ctx": info.get("ctx") or 0,
-            "is_batch": bool(BATCH_RE.search(label)),
-        })
-
+        entry = {
+            "id": cs,
+            "name": m.get("name") or cs,
+            "in": round(float(prompt) * 1e6, 4),
+            "out": round(float(completion) * 1e6, 4),
+            "ctx": m.get("context_length") or 0,
+            "_batch": is_batch,
+        }
+        prev = by_cs.get(cs)
+        # Prioridad: entrada normal (no batch) sobre la batch.
+        if prev is None or (not is_batch and prev["_batch"]):
+            by_cs[cs] = entry
     models = []
-    for slug, entries in raw.items():
-        # Prioridad: precio normal > batch (descartar batch si hay normal).
-        best = next((e for e in entries if not e["is_batch"]), entries[0])
-        best.pop("is_batch", None)
-        models.append(best)
+    for e in by_cs.values():
+        e.pop("_batch", None)
+        models.append(e)
     return models
 
 
@@ -118,12 +96,14 @@ def diff(prev: dict[str, dict], models: list[dict], first_run: bool) -> list[dic
 
 
 def main() -> int:
-    if not PORTAL_MD.exists():
-        print(f"ERROR: no existe {PORTAL_MD} — captúralo con web_extract del portal primero")
+    try:
+        raw = fetch_catalog()
+    except Exception as e:
+        print(f"ERROR: no se pudo obtener el catálogo de Nous Portal ({e})")
         return 1
-    models = parse_portal(PORTAL_MD.read_text(encoding="utf-8"))
+    models = parse_catalog(raw)
     if not models:
-        print("ERROR: no se parseó ningún modelo del portal")
+        print("ERROR: no se obtuvo ningún modelo del catálogo de Nous Portal")
         return 1
 
     first_run = not PREV_FILE.exists()
@@ -135,7 +115,7 @@ def main() -> int:
     entries = diff(prev, models, first_run)
     doc = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "source": "portal.nousresearch.com",
+        "source": "inference-api.nousresearch.com (Nous Portal)",
         "total": len(entries),
         "models": entries,
     }

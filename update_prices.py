@@ -2,11 +2,12 @@
 """Pipeline diario de nous-portal-prices (usado por el cron).
 
 Flujo:
-  1. Captura el portal con Playwright (node capture_portal.js -> portal.md)
-  2. Regenera prices.json / prices_prev.json con el diff (fetch_prices.py)
-  3. Guarda el histórico SQL (history.db) y exporta history.json
-  4. Despliega a media.rafarq.com/models (deploy.py)
-  5. Imprime por stdout el mensaje de cambios SOLO si hay cambios de precio
+  1. Regenera prices.json / prices_prev.json leyendo el catálogo oficial de
+     Nous Portal (fetch_prices.py -> inference-api.nousresearch.com/v1/models).
+     NO se usa OpenRouter ni la captura del portal web en ningún punto.
+  2. Guarda el histórico SQL (history.db) y exporta history.json
+  3. Despliega a media.rafarq.com/models (deploy.py)
+  4. Imprime por stdout el mensaje de cambios SOLO si hay cambios de precio
      en los modelos anclados (pin.php remoto). stdout vacío = cron silencioso.
 
 Uso:
@@ -26,7 +27,6 @@ DB = BASE / "history.db"
 HISTORY_JSON = BASE / "history.json"
 PIN_URL = "https://media.rafarq.com/models/pin.php"
 PCT_EPS = 0.05  # mínimo % de variación para considerarlo cambio
-NODE = "node" if __import__("shutil").which("node") else "/home/rafaelroa/.local/bin/node"
 
 
 def run(cmd: list[str], timeout: int = 600) -> str:
@@ -151,11 +151,8 @@ def main() -> int:
         log.flush()
     logln(f"== update_prices {datetime.now().isoformat(timespec='seconds')} ==")
     try:
-        # 1. captura (el portal bloquea curl; Playwright pasa el checkpoint)
-        out = run([NODE, "capture_portal.js", "portal.md"], timeout=300)
-        logln(" " + out.strip())
-        # 2. regenera precios con diff
-        out = run([sys.executable, "fetch_prices.py", "portal.md"], timeout=300)
+        # 1. catálogo oficial de Nous Portal (inference-api), sin OpenRouter
+        out = run([sys.executable, "fetch_prices.py"], timeout=300)
         logln(" " + out.strip())
         doc = json.loads((BASE / "prices.json").read_text(encoding="utf-8"))
         # 3. histórico SQL + export web
