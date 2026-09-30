@@ -26,7 +26,7 @@ BASE = Path(__file__).resolve().parent
 DB = BASE / "history.db"
 HISTORY_JSON = BASE / "history.json"
 PIN_URL = "https://media.rafarq.com/models/pin.php"
-PCT_EPS = 0.05  # mínimo % de variación para considerarlo cambio
+PCT_EPS = 2.0  # mínimo % de variación para considerarlo cambio
 
 
 def run(cmd: list[str], timeout: int = 600) -> str:

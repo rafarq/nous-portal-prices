@@ -18,3 +18,7 @@ update.log
 # Python
 __pycache__/
 *.pyc
+
+# Artefactos locales
+*.bak-*
+__pycache__/
