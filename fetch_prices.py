@@ -30,6 +30,20 @@ OUT_FILE = BASE / "prices.json"
 PCT_EPS = 0.05  # mínimo % de variación para considerarlo cambio
 
 
+def pct_of(change: dict | None) -> float | None:
+    """% de variación de un lado del cambio, ya normalizado.
+
+    - None -> sin cambio registrado
+    - inf  -> el precio anterior era 0: el diff solo crea la entrada si el
+              nuevo valor difiere, y los precios nunca son negativos, así que
+              0 -> x es siempre una subida (sin base para calcular el %).
+    """
+    if not change:
+        return None
+    p = change.get("pct")
+    return float("inf") if p is None else float(p)
+
+
 def fetch_catalog() -> list[dict]:
     """Modelos y precios del catálogo oficial de Nous (inference-api)."""
     req = urllib.request.Request(
@@ -113,6 +127,13 @@ def main() -> int:
     prev = {m["id"]: m for m in prev_raw}
 
     entries = diff(prev, models, first_run)
+
+    # Resumen ANTES de escribir: si algo falla, no se sobrescribe prices_prev.json
+    # y el diff de mañana sigue teniendo la base de hoy.
+    nuevos = sum(1 for m in entries if m["new"])
+    subidos = sum(1 for m in entries if any((pct_of(c) or 0) > 0 for c in m["change"].values()))
+    bajados = sum(1 for m in entries if any((pct_of(c) or 0) < 0 for c in m["change"].values()))
+
     doc = {
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "source": "inference-api.nousresearch.com (Nous Portal)",
@@ -125,9 +146,6 @@ def main() -> int:
         encoding="utf-8",
     )
 
-    nuevos = sum(1 for m in entries if m["new"])
-    subidos = sum(1 for m in entries if (m["change"]["in"] or {}).get("pct", 0) > 0 or (m["change"]["out"] or {}).get("pct", 0) > 0)
-    bajados = sum(1 for m in entries if (m["change"]["in"] or {}).get("pct", 0) < 0 or (m["change"]["out"] or {}).get("pct", 0) < 0)
     print(f"OK: {len(entries)} modelos | nuevos: {nuevos} | subidos: {subidos} | bajados: {bajados}")
     print(f"  -> {OUT_FILE.name} / {PREV_FILE.name}")
     return 0

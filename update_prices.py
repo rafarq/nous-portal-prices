@@ -29,6 +29,18 @@ PIN_URL = "https://media.rafarq.com/models/pin.php"
 PCT_EPS = 2.0  # mínimo % de variación para considerarlo cambio
 
 
+def change_pct(change: dict | None) -> float:
+    """% de variación de un lado del cambio; 0 si no hay cambio, inf si old==0.
+
+    `pct` es None cuando el precio anterior era 0 (no hay base para el %):
+    como los precios nunca son negativos, eso es siempre una subida.
+    """
+    if not change:
+        return 0.0
+    p = change.get("pct")
+    return float("inf") if p is None else float(p)
+
+
 def run(cmd: list[str], timeout: int = 600) -> str:
     r = subprocess.run(cmd, cwd=str(BASE), capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0:
@@ -72,7 +84,7 @@ def insert_history(doc: dict) -> None:
             ch = m.get("change") or {}
             cin, cout = ch.get("in"), ch.get("out")
             changed = False
-            if cin and cin.get("old") is not None and abs(cin.get("pct") or 0) >= PCT_EPS:
+            if cin and cin.get("old") is not None and abs(change_pct(cin)) >= PCT_EPS:
                 cur = con.execute("SELECT 1 FROM price_history WHERE id=? AND ts=?",
                                   (mid, ts_prev)).fetchone()
                 if not cur:
@@ -80,7 +92,7 @@ def insert_history(doc: dict) -> None:
                                 (mid, ts_prev, float(cin["old"]), new_out))
                     n_new += 1
                 changed = True
-            if cout and cout.get("old") is not None and abs(cout.get("pct") or 0) >= PCT_EPS:
+            if cout and cout.get("old") is not None and abs(change_pct(cout)) >= PCT_EPS:
                 cur = con.execute("SELECT 1 FROM price_history WHERE id=? AND ts=?",
                                   (mid, ts_prev)).fetchone()
                 if not cur:
@@ -127,16 +139,18 @@ def pinned_changes_message(doc: dict) -> str:
         parts = []
         for key, label in (("in", "in"), ("out", "out")):
             c = ch.get(key)
-            if not c or c.get("old") is None or abs(c.get("pct") or 0) < PCT_EPS:
+            if not c or c.get("old") is None:
                 continue
-            arrow = "🔺" if c["pct"] > 0 else "🔻"
+            pct = change_pct(c)
+            if abs(pct) < PCT_EPS:
+                continue
+            arrow = "🔺" if pct > 0 else "🔻"
             old = f"{float(c['old']):.4g}".rstrip("0").rstrip(".")
             new = f"{float(m[key]):.4g}".rstrip("0").rstrip(".")
             parts.append(f"{label} ${old} {arrow} ${new}")
         if parts:
             name = m.get("name") or pid
-            up = ((ch.get("in") or {}).get("pct", 0) > 0
-                  or (ch.get("out") or {}).get("pct", 0) > 0)
+            up = any(change_pct(ch.get(k) or {}) > 0 for k in ("in", "out"))
             lines.append(f"{'🔺' if up else '🔻'} **{name}** (`{pid}`):\n   " + "\n   ".join(parts))
     if not lines:
         return ""
