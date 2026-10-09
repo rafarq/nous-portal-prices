@@ -19,7 +19,7 @@ import json
 import sqlite3
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
@@ -69,9 +69,11 @@ def insert_history(doc: dict) -> None:
     - Los modelos sin cambio se siembran una sola vez como baseline (ts_now).
     """
     ts_now = doc.get("generated_at") or datetime.now(timezone.utc).isoformat(timespec="seconds")
-    ts_prev = (datetime.fromisoformat(ts_now).astimezone(timezone.utc)
-               .replace(hour=12, minute=0, second=0, microsecond=0)
-               .isoformat(timespec="seconds"))  # marcador del día anterior
+    # El valor anterior se fecha a las 12:00 del día ANTERIOR: es un marcador
+    # sintético y debe quedar ANTES del valor nuevo (el pase de ~06:00 UTC de
+    # hoy), o la serie se dibuja con el último tramo invertido.
+    ts_prev = (datetime.fromisoformat(ts_now).astimezone(timezone.utc) - timedelta(days=1)
+               ).replace(hour=12, minute=0, second=0, microsecond=0).isoformat(timespec="seconds")
 
     con = sqlite3.connect(DB)
     try:
