@@ -2,152 +2,265 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>Nous Portal · Precios de modelos</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Precios de modelos · Nous Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600;700&display=swap">
 <style>
   :root{
-    --bg:#0f1115; --card:#171a21; --border:#2a2f3a; --text:#e6e9ef;
-    --muted:#9aa3b2; --accent:#4f8cff; --up:#ff6b6b; --down:#4ade80; --new:#60a5fa;
-    --pin:#facc15;
+    --bg:#0c0d10; --s1:#14161b; --s2:#1b1e25; --s3:#252933;
+    --ink:#eceef2; --muted:#a9b1c0; --marca:#f2b544;
+    --up:#ff7a6b; --down:#4fd68a; --new:#7fb6ff; --foco:#ffffff;
+    --accent:var(--marca); --pin:var(--marca);
+    /* alias de compatibilidad: nada puede quedar sin resolver */
+    --card:var(--s1); --border:var(--s2); --text:var(--ink);
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;overscroll-behavior:none}
-  body{background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    padding:12px 16px}
-  .wrap{max-width:960px;height:100%;margin:0 auto;display:flex;flex-direction:column;gap:10px}
-  header{flex:none}
-  h1{font-size:1.35rem;font-weight:700}
-  .meta{color:var(--muted);font-size:.85rem;margin-top:4px;display:flex;flex-wrap:wrap;gap:4px 14px}
-  .controls{flex:none;display:flex;gap:8px}
-  #search{flex:1;min-width:0;background:var(--card);border:1px solid var(--border);color:var(--text);
-    border-radius:8px;padding:9px 12px;font-size:.95rem;outline:none}
-  #search:focus{border-color:var(--accent)}
+  html,body{min-height:100%;overscroll-behavior:none}
+  body{background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:22px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1200px;margin:0 auto;padding:32px}
+  .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-  .pinned-wrap{background:var(--bg);padding:10px 10px 8px;
-    border-bottom:1px solid var(--border)}
-  .pinned-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
-  .pinned-head .ttl{font-weight:700;font-size:.9rem;color:var(--pin)}
-  .pinned-head .cnt{color:var(--muted);font-size:.8rem}
-  .pin-sort{display:inline-flex;border:1px solid var(--border);border-radius:99px;overflow:hidden}
-  .pin-sort button{background:transparent;border:none;color:var(--muted);font-size:.72rem;font-weight:600;
-    padding:3px 10px;cursor:pointer}
-  .pin-sort button.on{background:rgba(79,140,255,.18);color:var(--accent)}
-  #pin-clear{margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--muted);
-    border-radius:99px;padding:3px 10px;font-size:.75rem;cursor:pointer}
-  #pin-clear:hover{color:var(--text);border-color:var(--muted)}
+  .head{padding-bottom:32px}
+  h1{font-size:clamp(44px,6.4vw + 20px,76px);line-height:.95;letter-spacing:-.02em;font-weight:700;margin:0 0 20px;max-width:16ch}
+  .board{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+  .meta{display:flex;flex-direction:column;gap:4px}
+  .count{font-size:34px;line-height:37px;font-weight:700;font-variant-numeric:tabular-nums}
+  .changes{font-size:20px;line-height:24px;font-weight:600;display:flex;gap:24px;flex-wrap:wrap}
+  .changes .mv-up b{color:var(--up)} .changes .mv-down b{color:var(--down)} .changes .mv-new b{color:var(--new)}
+  .changes .mv-none{color:var(--muted);font-weight:400}
+  .prov{font-size:13px;line-height:18px;color:var(--muted)}
+  .prov b{color:var(--ink);font-weight:600}
+  .controls{margin-top:6px}
+  .controls input{width:360px;height:48px;background:var(--s3);border:0;border-radius:10px;color:var(--ink);font:inherit;font-size:16px;padding:0 16px}
+  .controls input::placeholder{color:var(--muted)}
+  .controls input:focus-visible{outline:2px solid var(--foco);outline-offset:2px}
+  @media (max-width:900px){ .board{flex-direction:column;align-items:stretch} .controls input{width:100%} }
 
-  .pinned-list{display:flex;flex-direction:column;gap:6px}
-  .pin-card{width:100%;background:var(--card);border:1px solid var(--accent);border-radius:10px;
-    padding:8px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.85rem}
-  .pin-card.dragging{opacity:.45;border-style:dashed}
-  .pin-card .pin-handle{color:var(--muted);cursor:grab;font-size:1.05rem;user-select:none;touch-action:none}
-  .pin-card .pname{font-weight:600;display:flex;align-items:center;gap:6px;min-width:0}
-  .pin-card .pmid{color:var(--muted);font-size:.72rem;word-break:break-all;width:100%}
-  .pin-card .pprices{display:flex;gap:14px;font-variant-numeric:tabular-nums;margin-left:auto}
-  .pin-card .pprices b{color:var(--accent)}
-  .pin-card .pbtns{display:inline-flex;gap:2px}
-  .pin-card .pbtn{background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);
-    cursor:pointer;font-size:.8rem;padding:1px 7px;line-height:1.4}
-  .pin-card .pbtn:hover{color:var(--text);border-color:var(--muted)}
-  .pin-card .pbtn:disabled{opacity:.25;cursor:default}
-  .pin-card .unpin{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1rem;line-height:1;padding:2px 4px}
-  .pin-card .unpin:hover{color:var(--up)}
+  .pinned-wrap{background:var(--s1);border-radius:12px 12px 0 0;padding:24px;margin-bottom:0}
+  .pinned-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  .pinned-head .ttl{font-size:20px;line-height:24px;font-weight:700}
+  .pinned-head .cnt{font-size:13px;line-height:18px;color:var(--muted)}
+  .pin-sort{position:relative;display:flex;gap:4px;margin-left:auto;background:var(--s3);border-radius:10px;padding:4px;width:264px}
+  .pin-sort button{position:relative;z-index:1;flex:1 1 0;min-width:0;height:36px;padding:0 8px;background:none;border:0;border-radius:8px;color:var(--muted);font:inherit;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .pin-sort::before{content:"";position:absolute;top:4px;left:4px;width:calc((100% - 16px) / 3);height:36px;background:var(--bg);border-radius:8px;transition:transform 220ms cubic-bezier(.2,.7,.2,1)}
+  .pin-sort:has(button[data-mode="in"].on)::before{transform:translateX(calc(100% + 4px))}
+  .pin-sort:has(button[data-mode="out"].on)::before{transform:translateX(calc(200% + 8px))}
+  .pin-sort button.on{background:none;color:var(--ink)}
+  .pin-sort button:focus-visible,#pin-clear:focus-visible,.pbtn:focus-visible,.unpin:focus-visible{outline:2px solid var(--foco);outline-offset:2px}
+  #pin-clear{height:36px;padding:0 14px;background:none;border:0;border-radius:8px;color:var(--muted);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  #pin-clear:hover{color:var(--ink);background:var(--s3)}
+  .pinned-list{display:grid;grid-template-columns:1fr;gap:8px}
+  .pin-card{background:var(--s2);border-radius:10px;padding:10px 16px;display:grid;
+            grid-template-columns:20px minmax(0,1fr) 128px 128px 104px 76px 84px;gap:16px;align-items:center;
+            border-top:2px solid transparent;border-bottom:2px solid transparent}
+  .pin-card.dragging{opacity:.45}
+  .pin-card .pin-handle{display:flex;align-items:center;color:var(--muted);cursor:grab;user-select:none;touch-action:none}
+  .pin-card .pname{font-size:16px;line-height:22px;font-weight:600}
+  .pin-card .pmid{font-size:13px;line-height:18px;color:var(--muted)}
+  .pin-card .pprices{display:contents}
+  .pin-card .pprices > span{font-size:13px;line-height:18px;color:var(--muted)}
+  .pin-card .pprices b{display:block;font-size:20px;line-height:24px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .pin-card .pprices > span:nth-child(3)::before{content:"Contexto";display:block}
+  .pbtns{display:flex;gap:4px;margin-left:auto}
+  .pbtn{width:36px;height:36px;background:var(--s3);border:0;border-radius:8px;color:var(--ink);cursor:pointer;font:inherit;font-size:13px}
+  .pbtn:disabled{opacity:.4;cursor:default}
+  .unpin{align-self:center;height:36px;padding:0 14px;background:none;border:0;border-radius:8px;color:var(--muted);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .unpin:hover{color:var(--up)}
 
-  .table-wrap{flex:1 1 auto;min-height:0;overflow-y:auto;border:1px solid var(--border);border-radius:10px;background:var(--card)}
-  .table-x{overflow-x:auto}
-  table{border-collapse:collapse;width:100%;min-width:680px;font-size:.9rem}
-  thead th{position:sticky;top:0;z-index:2;cursor:pointer;user-select:none;padding:10px 12px;text-align:left;white-space:nowrap;
-    border-bottom:1px solid var(--border);background:#1d212b}
-  thead th:hover{background:#252b38}
-  thead th .arrow{color:var(--accent);font-size:.75rem;margin-left:3px}
-  tbody td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
-  tbody tr:last-child td{border-bottom:none}
-  tbody tr:hover{background:#1c212c}
-  tbody tr.pinned-row{background:rgba(79,140,255,.07)}
-  tbody tr.pinned-row:hover{background:rgba(79,140,255,.12)}
-  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  th.num{text-align:right}
-  td.pin-col{text-align:center;width:44px}
-  .pin-btn{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);
-    cursor:pointer;font-size:.95rem;padding:2px 6px;line-height:1.2}
-  .pin-btn:hover{border-color:var(--pin);color:var(--pin)}
-  .pin-btn.on{background:rgba(250,204,21,.12);border-color:var(--pin);color:var(--pin)}
-  .mname{font-weight:600}
-  .mid{color:var(--muted);font-size:.78rem;word-break:break-all}
-  .ctx{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .badge{display:inline-block;font-size:.72rem;font-weight:700;border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle}
-  .b-up{background:rgba(255,107,107,.14);color:var(--up)}
-  .b-down{background:rgba(74,222,128,.14);color:var(--down)}
-  .b-new{background:rgba(96,165,250,.16);color:var(--new)}
-  footer{flex:none;color:var(--muted);font-size:.78rem;text-align:center}
-  .empty{padding:24px;text-align:center;color:var(--muted)}
-  .mname{cursor:pointer}
-  .mname:hover{color:var(--accent)}
+  .table-wrap{margin-top:0}
+  .table-x{overflow:visible}
+  table{width:100%;border-collapse:collapse}
+  thead th{position:sticky;top:0;z-index:2;background:var(--bg);height:52px;padding:0;text-align:left;font-weight:600}
+  th.pin-col{width:64px}
+  th.pin-col svg{width:15px;height:15px;vertical-align:middle;color:var(--muted)}
+  th.num{width:200px;text-align:right}
+  th[data-key="ctx"]{width:136px}
+  thead th button{width:100%;height:44px;background:var(--s2);border:0;border-radius:8px;color:var(--ink);font:inherit;font-size:13px;font-weight:600;letter-spacing:.01em;cursor:pointer;padding:0 12px;display:flex;align-items:center;gap:8px}
+  thead th.num button{justify-content:flex-end}
+  thead th .unit{color:var(--muted);font-weight:400}
+  thead th:has(.arrow:not(:empty)) button{background:var(--marca);color:var(--bg)}
+  thead th:has(.arrow:not(:empty)) .unit{color:inherit;opacity:.7}
+  thead th button:focus-visible{outline-offset:-3px}
+  tbody td{padding:6px 0;border-top:1px solid var(--s2);vertical-align:top}
+  tbody tr:hover{background:var(--s2)}
+  td.num{text-align:right;font-size:20px;line-height:24px;font-weight:600;font-variant-numeric:tabular-nums}
+  td.num .badge{display:block;font-size:13px;line-height:18px;font-weight:600}
+  .mname{font-size:16px;line-height:22px;font-weight:600;cursor:pointer}
+  .mname:hover{color:var(--marca)}
+  .mid{font-size:13px;line-height:18px;color:var(--muted)}
+  .ctx{font-size:16px;line-height:22px;color:var(--muted)}
+  .pin-col{text-align:center}
+  .pin-btn{width:44px;height:44px;background:none;border:0;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;font:inherit}
+  .pin-btn:hover{color:var(--ink);background:var(--s2)}
+  .pin-btn.on{color:var(--bg);background:var(--marca)}
+  .pin-btn svg{width:15px;height:15px}
+  .pin-btn.on svg{fill:currentColor}
+  .badge.b-up{color:var(--up)}
+  .badge.b-down{color:var(--down)}
+  .badge.b-new{display:inline-block;font-size:13px;line-height:18px;font-weight:600;color:var(--new);margin-left:8px}
+  tr.pinned-row{background:var(--s1)}
+  tr.pinned-row + tr:not(.pinned-row) td{border-top:8px solid var(--bg)}
+  #empty{padding:40px 0;font-size:20px;color:var(--muted)}
+  .empty{padding:40px 0;font-size:16px;line-height:24px;color:var(--muted)}
+  footer{font-size:16px;line-height:24px;color:var(--muted);max-width:60ch;padding:40px 0 0}
+
   /* Modal histórico */
-  .hist-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center;z-index:50}
+  .hist-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:flex-end;justify-content:center;z-index:50}
   .hist-overlay.open{display:flex}
-  .hist-panel{background:var(--card);border:1px solid var(--border);border-radius:14px 14px 0 0;width:100%;max-width:640px;
-    max-height:78vh;display:flex;flex-direction:column;padding:14px 16px calc(14px + env(safe-area-inset-bottom))}
-  .hist-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+  .hist-panel{background:var(--s2);border:0;border-radius:14px 14px 0 0;width:100%;max-width:720px;
+    max-height:78vh;display:flex;flex-direction:column;padding:24px 24px calc(24px + env(safe-area-inset-bottom))}
+  .hist-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
   .hist-head .ht{flex:1;min-width:0}
-  .hist-head .ht b{font-size:1.02rem;display:block}
-  .hist-head .ht span{color:var(--muted);font-size:.75rem;word-break:break-all}
-  .hist-close{background:transparent;border:none;color:var(--muted);font-size:1.3rem;cursor:pointer;line-height:1;padding:4px 6px}
-  .hist-close:hover{color:var(--text)}
+  .hist-head .ht b{font-size:34px;line-height:38px;font-weight:700;display:block}
+  .hist-head .ht span{color:var(--muted);font-size:13px;line-height:18px;word-break:break-all}
+  .hist-close{background:transparent;border:0;color:var(--muted);cursor:pointer;padding:8px;border-radius:8px;display:flex;align-items:center;justify-content:center;font:inherit}
+  .hist-close:hover{color:var(--ink);background:var(--s3)}
   .hist-body{overflow-y:auto;min-height:0}
-  .hist-table{width:100%;border-collapse:collapse;font-size:.85rem;min-width:0}
-  .hist-table th{position:sticky;top:0;background:#1d212b;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
-  .hist-table td{padding:7px 10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .hist-table{width:100%;border-collapse:collapse;font-size:13px;min-width:0}
+  .hist-table th{position:sticky;top:0;background:var(--s3);text-align:left;padding:10px 12px;border-bottom:1px solid var(--s1);font-weight:600;font-size:13px;white-space:nowrap}
+  .hist-table td{padding:10px 12px;border-bottom:1px solid var(--s1);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13px}
   .hist-table td:last-child{text-align:right}
-  .hist-empty{padding:18px;text-align:center;color:var(--muted);font-size:.85rem}
+  .hist-empty{padding:24px;text-align:center;color:var(--muted);font-size:16px}
   .hist-chg-up{color:var(--up)}
   .hist-chg-down{color:var(--down)}
-  @media (max-width:480px){
-    body{padding:8px 10px}
-    h1{font-size:1.15rem}
-    tbody td{padding:7px 9px}
-    .pin-card .pprices{margin-left:auto;width:auto}
-    .hist-panel{max-height:82vh}
+
+  /* Foco visible */
+  a:focus-visible,button:focus-visible,input:focus-visible,[tabindex]:focus-visible{
+    outline:2px solid var(--foco);outline-offset:2px}
+
+  /* Movimiento */
+  @keyframes sube{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  @keyframes entra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .wrap{animation:entra 420ms cubic-bezier(.2,.7,.2,1) both}
+  .head{animation:entra 420ms cubic-bezier(.2,.7,.2,1) 20ms both}
+  h1{animation:sube 560ms cubic-bezier(.2,.7,.2,1) 40ms both}
+  .board{animation:entra 420ms cubic-bezier(.2,.7,.2,1) 60ms both}
+  #meta-count{animation:sube 420ms cubic-bezier(.2,.7,.2,1) 80ms both}
+  .changes .mv-up,.changes .mv-down,.changes .mv-new,.changes .mv-none{animation:entra 420ms cubic-bezier(.2,.7,.2,1) both}
+  .changes .mv-up{animation-delay:100ms}.changes .mv-down{animation-delay:120ms}.changes .mv-new{animation-delay:140ms}.changes .mv-none{animation-delay:100ms}
+  .prov{animation:entra 420ms cubic-bezier(.2,.7,.2,1) 120ms both}
+  .controls{animation:entra 420ms cubic-bezier(.2,.7,.2,1) 140ms both}
+  .controls input{animation:entra 420ms cubic-bezier(.2,.7,.2,1) 160ms both}
+  .table-x{animation:entra 420ms cubic-bezier(.2,.7,.2,1) 140ms both}
+  thead tr{animation:entra 420ms cubic-bezier(.2,.7,.2,1) 140ms both}
+  thead th{animation:entra 420ms cubic-bezier(.2,.7,.2,1) both}
+  thead th:nth-child(1){animation-delay:160ms}
+  thead th:nth-child(2){animation-delay:180ms}
+  thead th:nth-child(3){animation-delay:200ms}
+  thead th:nth-child(4){animation-delay:220ms}
+  thead th:nth-child(5){animation-delay:240ms}
+  footer{animation:entra 420ms cubic-bezier(.2,.7,.2,1) 240ms both}
+  .mname{transition:transform 160ms cubic-bezier(.2,.7,.2,1)}
+  tr:hover .mname{transform:translateX(3px)}
+  .pin-btn{transition:background-color 160ms,color 160ms,transform 90ms}
+  .pin-btn:active{transform:scale(.86)}
+  thead th button{transition:transform 90ms,background-color 160ms}
+  thead th button:active{transform:scale(.97)}
+  .arrow{transition:opacity 160ms,transform 160ms}
+  #pinned-wrap{animation:entra 280ms cubic-bezier(.2,.7,.2,1) both}
+  .pin-card{transition:transform 120ms,opacity 120ms}
+  .pbtn:active{transform:scale(.92)}
+  .hist-overlay{opacity:0;transition:opacity 280ms,display 280ms allow-discrete}
+  .hist-overlay.open{opacity:1}
+  @starting-style{.hist-overlay.open{opacity:0}}
+  .hist-overlay:not(.open){pointer-events:none}
+  .hist-overlay:not(.open) .hist-panel{transform:translateY(24px)}
+  .hist-overlay.open .hist-panel{transform:none}
+  @starting-style{.hist-overlay.open .hist-panel{transform:translateY(24px)}}
+  .hist-panel{transition:transform 280ms cubic-bezier(.2,.7,.2,1)}
+  #empty{animation:entra 220ms cubic-bezier(.2,.7,.2,1) both}
+  #pin-clear:active,.hist-close:active{transform:scale(.96)}
+  @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}}
+
+  @media (max-width:960px){
+    .pin-card{grid-template-columns:minmax(0,1fr) auto auto;gap:10px 12px;padding:14px}
+    .pin-card > div:first-of-type{grid-column:1/-1;grid-row:1}
+    .pin-card .pprices{display:flex;gap:20px;flex-wrap:wrap;grid-column:1/-1;grid-row:2}
+    .pin-card .pbtns{grid-column:2;grid-row:3;justify-self:end}
+    .pin-card .unpin{grid-column:3;grid-row:3;align-self:center}
+  }
+
+  /* Móvil */
+  @media (max-width:640px){
+    .wrap{padding:20px}
+    table,tbody,thead{display:block;min-width:0;width:auto}
+    thead{position:sticky;top:0;z-index:3;background:var(--bg);padding-bottom:8px}
+    thead tr{display:flex;gap:4px}
+    thead th{width:auto;flex:1 1 0;height:44px}
+    thead th.pin-col,thead th .unit{display:none}
+    thead th button{height:44px;justify-content:center;padding:0 6px}
+    tbody tr{display:grid;grid-template-columns:auto auto 1fr 44px;
+             grid-template-areas:"name name name pin" "in out ctx pin";
+             gap:8px;padding:16px 0;height:auto}
+    tbody td{display:block;padding:0;border:0}
+    tbody td.empty{grid-column:1/-1}
+    td.pin-col{grid-area:pin;align-self:center}
+    tbody td:nth-child(2){grid-area:name}
+    tbody td:nth-child(3){grid-area:in}
+    tbody td:nth-child(4){grid-area:out}
+    tbody td:nth-child(5){grid-area:ctx}
+    tbody td:nth-child(3)::before{content:"In ";font-size:13px;line-height:18px;color:var(--muted);font-weight:400}
+    tbody td:nth-child(4)::before{content:"Out ";font-size:13px;line-height:18px;color:var(--muted);font-weight:400}
+    tbody td:nth-child(5)::before{content:"Contexto ";font-size:13px;line-height:18px;color:var(--muted);font-weight:400}
+    td.num{text-align:left}
+    .mname,.mid{overflow-wrap:anywhere}
+    /* el comparador */
+    .pinned-head{display:grid;grid-template-columns:1fr auto;gap:12px}
+    .pinned-head .pin-sort{grid-column:1/-1;width:100%;margin-left:0;order:3}
+    .pin-card .pin-handle{display:none}
+    .pbtn{width:44px;height:44px}
+    .unpin,#pin-clear,.pin-sort button{height:44px}
+    .pin-sort::before{height:44px}
+    /* el histórico */
+    .hist-panel{width:100%;max-width:100%;max-height:88vh}
+    .hist-panel .hist-table td,.hist-panel .hist-table th{white-space:normal;overflow-wrap:anywhere}
+    .hist-close{min-width:44px;min-height:44px}
   }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>Nous Portal · Precios de modelos</h1>
-    <div class="meta">
-      <span id="meta-date">—</span>
-      <span id="meta-count">—</span>
-      <span id="meta-changes"></span>
+  <header class="head">
+    <h1>Precios de modelos</h1>
+    <div class="board">
+      <div class="meta">
+        <span class="count" id="meta-count"></span>
+        <span class="changes" id="meta-changes"></span>
+        <span class="prov"><span id="meta-date"></span></span>
+      </div>
+      <div class="controls">
+        <label class="vh" for="search">Buscar modelo</label>
+        <input id="search" type="search" placeholder="Buscar modelo…" autocomplete="off">
+      </div>
     </div>
   </header>
-  <div class="controls">
-    <input id="search" type="search" placeholder="Buscar modelo…" autocomplete="off">
+
+  <div class="pinned-wrap" id="pinned-wrap" style="display:none">
+    <div class="pinned-head">
+      <span class="ttl">Anclados</span>
+      <span class="cnt" id="pin-count"></span>
+      <div class="pin-sort" id="pin-sort">
+        <button data-mode="" class="on">Manual</button>
+        <button data-mode="in">Por In</button>
+        <button data-mode="out">Por Out</button>
+      </div>
+      <button id="pin-clear">Quitar todos</button>
+    </div>
+    <div class="pinned-list" id="pin-list"></div>
   </div>
 
   <div class="table-wrap">
-    <div class="pinned-wrap" id="pinned-wrap" style="display:none">
-      <div class="pinned-head">
-        <span class="ttl">📌 Anclados</span>
-        <span class="cnt" id="pin-count"></span>
-        <div class="pin-sort" id="pin-sort">
-          <button data-mode="" class="on">Manual</button>
-          <button data-mode="in">Por In</button>
-          <button data-mode="out">Por Out</button>
-        </div>
-        <button id="pin-clear">Quitar todos</button>
-      </div>
-      <div class="pinned-list" id="pin-list"></div>
-    </div>
     <div class="table-x">
       <table>
         <thead>
           <tr>
-            <th class="pin-col" title="Anclar para comparar">📌</th>
-            <th data-key="name">Modelo <span class="arrow"></span></th>
-            <th data-key="in" class="num">Input $/1M <span class="arrow"></span></th>
-            <th data-key="out" class="num">Output $/1M <span class="arrow"></span></th>
-            <th data-key="ctx" class="num">Contexto <span class="arrow"></span></th>
+            <th class="pin-col" title="Anclar para comparar"><span class="vh">Anclar</span><svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M5.2 2.4h5.6l-.9 4.3 2.1 2.1H4l2.1-2.1z"/><path d="M8 8.8V14"/></svg></th>
+            <th data-key="name"><button type="button">Modelo <span class="arrow"></span></button></th>
+            <th data-key="in" class="num"><button type="button">Input <span class="unit">$/1M</span> <span class="arrow"></span></button></th>
+            <th data-key="out" class="num"><button type="button">Output <span class="unit">$/1M</span> <span class="arrow"></span></button></th>
+            <th data-key="ctx" class="num"><button type="button">Contexto <span class="arrow"></span></button></th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -155,17 +268,18 @@
       <div id="empty" class="empty" style="display:none">Sin resultados</div>
     </div>
   </div>
-  <footer>Fuente: <a href="https://openrouter.ai" style="color:var(--muted)">OpenRouter</a> · catálogo de Nous Portal · Actualiza bajo demanda</footer>
+
+  <footer>Precios de entrada y salida por millón de tokens. Fuente: inference-api de Nous Portal. Se actualiza cada día.</footer>
 </div>
 
-<div class="hist-overlay" id="hist-overlay">
+<div class="hist-overlay" id="hist-overlay" role="dialog" aria-labelledby="hist-name">
   <div class="hist-panel">
     <div class="hist-head">
       <div class="ht">
-        <b id="hist-name">—</b>
-        <span id="hist-id">—</span>
+        <b id="hist-name"></b>
+        <span id="hist-id"></span>
       </div>
-      <button class="hist-close" id="hist-close" title="Cerrar">✕</button>
+      <button class="hist-close" id="hist-close" title="Cerrar"><span class="vh">Cerrar</span><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4L4 12"/></svg></button>
     </div>
     <div class="hist-body" id="hist-body"></div>
   </div>
@@ -239,6 +353,7 @@ function togglePin(id){
   savePinned();
   syncPinsRemote();
   applySort();
+  render();
   renderPinned();
 }
 function setPinSort(mode){
@@ -284,7 +399,7 @@ function renderPinned(){
     const first = idx === 0, last = idx === n - 1;
     return `
     <div class="pin-card" draggable="true" data-id="${m.id}">
-      <span class="pin-handle" title="Arrastrar">⠿</span>
+      <span class="pin-handle" title="Arrastrar"><svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true" fill="currentColor"><circle cx="3" cy="3" r="1.4"/><circle cx="7" cy="3" r="1.4"/><circle cx="3" cy="8" r="1.4"/><circle cx="7" cy="8" r="1.4"/><circle cx="3" cy="13" r="1.4"/><circle cx="7" cy="13" r="1.4"/></svg></span>
       <div style="flex:1;min-width:180px">
         <div class="pname" data-id="${m.id}" title="Ver histórico" style="cursor:pointer">${m.name}<span class="badge ${m.new ? "b-new" : ""}" style="${m.new ? "" : "display:none"}">NUEVO</span></div>
         <div class="pmid">${m.id}</div>
@@ -298,7 +413,7 @@ function renderPinned(){
         <button class="pbtn" data-move="-1" title="Subir" ${first ? "disabled" : ""}>▲</button>
         <button class="pbtn" data-move="1" title="Bajar" ${last ? "disabled" : ""}>▼</button>
       </div>
-      <button class="unpin" title="Quitar" data-id="${m.id}">✕</button>
+      <button class="unpin" title="Quitar" data-id="${m.id}">Quitar</button>
     </div>`;
   }).join("");
 
@@ -394,6 +509,8 @@ function closeHistory(){
   $("#hist-overlay").classList.remove("open");
 }
 
+const PIN_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M5.2 2.4h5.6l-.9 4.3 2.1 2.1H4l2.1-2.1z"/><path d="M8 8.8V14"/></svg>';
+
 function render(){
   const q = $("#search").value.trim().toLowerCase();
   const rows = models.filter(m => !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q));
@@ -405,7 +522,7 @@ function render(){
     const tr = document.createElement("tr");
     if (pinned) tr.className = "pinned-row";
     tr.innerHTML = `
-      <td class="pin-col"><button class="pin-btn ${pinned ? "on" : ""}" title="${pinned ? "Quitar del comparador" : "Anclar para comparar"}" data-id="${m.id}">${pinned ? "📌" : "📍"}</button></td>
+      <td class="pin-col"><button class="pin-btn ${pinned ? "on" : ""}" aria-pressed="${pinned ? "true" : "false"}" title="${pinned ? "Quitar del comparador" : "Anclar para comparar"}" data-id="${m.id}">${PIN_SVG}</button></td>
       <td><div class="mname" data-id="${m.id}" title="Ver histórico">${m.name}${m.new ? `<span class="badge b-new">NUEVO</span>` : ""}</div><div class="mid">${m.id}</div></td>
       <td class="num">${fmtUsd(m.in)}${badgeFor(m.change, "in")}</td>
       <td class="num">${fmtUsd(m.out)}${badgeFor(m.change, "out")}</td>
@@ -447,10 +564,10 @@ fetch("prices.json", {cache: "no-store"})
     const downs = models.filter(m => (m.change.in && m.change.in.pct < 0) || (m.change.out && m.change.out.pct < 0)).length;
     const news = models.filter(m => m.new).length;
     const parts = [];
-    if (ups) parts.push(`▲ ${ups} subieron`);
-    if (downs) parts.push(`▼ ${downs} bajaron`);
-    if (news) parts.push(`🆕 ${news} nuevos`);
-    $("#meta-changes").textContent = parts.join(" · ");
+    if (ups) parts.push(`<span class="mv-up"><b>▲ ${ups}</b> subieron</span>`);
+    if (downs) parts.push(`<span class="mv-down"><b>▼ ${downs}</b> bajaron</span>`);
+    if (news) parts.push(`<span class="mv-new"><b>${news}</b> nuevos</span>`);
+    $("#meta-changes").innerHTML = parts.length ? parts.join("") : '<span class="mv-none">Sin cambios hoy</span>';
     return Promise.all([loadPinsRemote(),
       fetch("history.json", {cache: "no-store"})
         .then(r => r.ok ? r.json() : {})

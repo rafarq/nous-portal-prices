@@ -22,3 +22,6 @@ __pycache__/
 # Artefactos locales
 *.bak-*
 __pycache__/
+
+# Taller del rediseño (pliego, plan, rondas) — local, no se versiona
+.taste-skill/
