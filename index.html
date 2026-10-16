@@ -175,11 +175,13 @@
   @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition-duration:.01ms!important}}
 
   @media (max-width:960px){
-    .pin-card{grid-template-columns:minmax(0,1fr) auto auto;gap:10px 12px;padding:14px}
-    .pin-card > div:first-of-type{grid-column:1/-1;grid-row:1}
-    .pin-card .pprices{display:flex;gap:20px;flex-wrap:wrap;grid-column:1/-1;grid-row:2}
-    .pin-card .pbtns{grid-column:2;grid-row:3;justify-self:end}
-    .pin-card .unpin{grid-column:3;grid-row:3;align-self:center}
+    .pin-card .pin-handle{display:none}
+    .pin-card{grid-template-columns:minmax(0,1fr) auto auto;gap:8px 12px;padding:12px 14px}
+    .pin-card > div:first-of-type{grid-column:1;grid-row:1}
+    .pin-card .pprices{display:flex;gap:16px;flex-wrap:wrap;grid-column:1/-1;grid-row:2}
+    .pin-card .pbtns{grid-column:2;grid-row:1;justify-self:end}
+    .pin-card .unpin{grid-column:3;grid-row:1;align-self:center}
+    .pinned-list{max-height:384px;overflow-y:auto;overscroll-behavior:contain;padding-right:2px}
   }
 
   /* Móvil */
@@ -209,6 +211,7 @@
     /* el comparador */
     .pinned-head{display:grid;grid-template-columns:1fr auto;gap:12px}
     .pinned-head .pin-sort{grid-column:1/-1;width:100%;margin-left:0;order:3}
+    .pinned-list{max-height:240px}
     .pin-card .pin-handle{display:none}
     .pbtn{width:44px;height:44px}
     .unpin,#pin-clear,.pin-sort button{height:44px}
